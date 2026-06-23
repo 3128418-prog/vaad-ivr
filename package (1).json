@@ -1,8 +1,0 @@
-{
-  "name": "vaad-ivr",
-  "version": "2.0.0",
-  "description": "IVR server for Vaad Beit - Yemot Hamashiach",
-  "scripts": {
-    "start": "node server.js"
-  }
-}
