@@ -1,0 +1,15 @@
+{
+  "name": "vaad-ivr",
+  "version": "1.0.0",
+  "description": "IVR server for vaad bayit - Yemot HaMashiach integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
