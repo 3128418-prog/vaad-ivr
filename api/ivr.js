@@ -1,4 +1,3 @@
-
 // api/ivr.js — Vercel Serverless Function with Upstash Redis
  
 const SECRET = process.env.API_SECRET || 'vaad123';
@@ -15,7 +14,16 @@ async function kvGet(key) {
     if (!r.ok) return null;
     var j = await r.json();
     if (!j.result) return null;
-    return JSON.parse(j.result);
+    var val = j.result;
+    // If string, try to parse
+    if (typeof val === 'string') {
+      try { val = JSON.parse(val); } catch(e) {}
+    }
+    // If still string (double-encoded), parse again
+    if (typeof val === 'string') {
+      try { val = JSON.parse(val); } catch(e) {}
+    }
+    return val;
   } catch(e) { return null; }
 }
  
@@ -146,7 +154,8 @@ function normalizePhone(phone) {
 }
  
 function findResident(residents, phone) {
-  if (!phone || !residents.length) return null;
+  if (!phone) return null;
+  if (!residents || !Array.isArray(residents) || !residents.length) return null;
   return residents.find(function(r) {
     return normalizePhone(r.phone || '') === phone ||
            normalizePhone(r.phone2 || '') === phone;
