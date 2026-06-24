@@ -1,62 +1,72 @@
 
-// api/ivr.js — Vercel Serverless Function
-// ימות המשיח IVR for vaad bayit
- 
-// In-memory store (shared across warm instances)
-// Data is pushed from the website via POST /api/ivr
-let store = {
-  residents: [],
-  announcement: '',
-  lastUpdated: null,
-};
+// api/ivr.js — Vercel Serverless Function with Upstash Redis storage
  
 const SECRET = process.env.API_SECRET || 'vaad123';
+const KV_URL = process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
  
-export default function handler(req, res) {
+// ─── Redis helpers via Upstash REST API ───────────
+async function kvGet(key) {
+  if (!KV_URL || !KV_TOKEN) return null;
+  const r = await fetch(`${KV_URL}/get/${key}`, {
+    headers: { Authorization: `Bearer ${KV_TOKEN}` }
+  });
+  const j = await r.json();
+  return j.result ? JSON.parse(j.result) : null;
+}
+ 
+async function kvSet(key, value) {
+  if (!KV_URL || !KV_TOKEN) return;
+  await fetch(`${KV_URL}/set/${key}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(JSON.stringify(value))
+  });
+}
+ 
+// ─── Main handler ─────────────────────────────────
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
- 
   if (req.method === 'OPTIONS') return res.status(200).end();
  
-  // ── POST /api/ivr ── receive data from website
+  // POST — receive data from website
   if (req.method === 'POST') {
-    const { secret, residents, announcement } = req.body || {};
-    if (secret !== SECRET) return res.status(401).json({ error: 'Unauthorized' });
-    if (residents) store.residents = residents;
-    if (announcement !== undefined) store.announcement = announcement;
-    store.lastUpdated = new Date().toISOString();
-    return res.status(200).json({ ok: true, count: store.residents.length });
+    const { secret, apiKey, residents, announcement } = req.body || {};
+    const s = secret || apiKey;
+    if (s !== SECRET) return res.status(401).json({ error: 'Unauthorized' });
+    if (residents) await kvSet('vaad:residents', residents);
+    if (announcement !== undefined) await kvSet('vaad:announcement', announcement);
+    const count = residents ? residents.length : 0;
+    return res.status(200).json({ ok: true, count });
   }
  
-  // ── GET /api/ivr?health=1 ── connection test
+  // GET health check
   if (req.query.health) {
-    return res.status(200).json({
-      ok: true,
-      residents: store.residents.length,
-      lastUpdated: store.lastUpdated,
-    });
+    const residents = await kvGet('vaad:residents') || [];
+    return res.status(200).json({ ok: true, residents: residents.length });
   }
  
-  // ── GET /api/ivr?phone=XXX&step=YYY ── IVR logic
+  // GET IVR — called by Yemot HaMashiach
   const phone = normalizePhone(req.query.phone || '');
-  const step = req.query.step || 'menu';
-  const base = `https://${req.headers.host}/api/ivr`;
+  const step  = req.query.step || 'menu';
+  const base  = `https://${req.headers.host}/api/ivr`;
  
-  const resident = findResident(phone);
+  const residents    = await kvGet('vaad:residents') || [];
+  const announcement = await kvGet('vaad:announcement') || '';
+  const resident     = findResident(residents, phone);
  
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
   if (step === 'debt')         return res.send(debtStep(phone, resident, base));
   if (step === 'payments')     return res.send(paymentsStep(phone, resident, base));
   if (step === 'complaint')    return res.send(complaintStep(phone, resident, base));
-  if (step === 'announcement') return res.send(announcementStep(phone, base));
- 
+  if (step === 'announcement') return res.send(announcementStep(phone, announcement, base));
   return res.send(menuStep(phone, resident, base));
 }
  
-// ─── Steps ───────────────────────────────────────────
- 
+// ─── IVR Steps ────────────────────────────────────
 function menuStep(phone, resident, base) {
   const name = resident ? resident.name : 'דייר יקר';
   return yemot(
@@ -76,7 +86,7 @@ function debtStep(phone, resident, base) {
   if (!resident) {
     text = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
   } else {
-    const balance = Math.round(resident.balance || 0);
+    const balance = Math.round(resident.debt || 0);
     text = balance <= 0
       ? `שלום ${resident.name}. חשבונך מאוזן. אין חוב פתוח. תודה.`
       : `שלום ${resident.name}. יתרת החוב שלך היא ${balance} שקלים. אנא סדר את התשלום בהקדם.`;
@@ -89,15 +99,9 @@ function paymentsStep(phone, resident, base) {
   if (!resident) {
     text = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
   } else {
-    const payments = (resident.payments || []).slice(-3).reverse();
-    if (!payments.length) {
-      text = `שלום ${resident.name}. לא נמצאו תשלומים במערכת.`;
-    } else {
-      text = `שלום ${resident.name}. התשלומים האחרונים שלך: `;
-      payments.forEach(p => {
-        text += `${formatDate(p.date)} — ${Math.round(p.amount)} שקלים. `;
-      });
-    }
+    text = `שלום ${resident.name}. `;
+    text += `שולם סך הכל ${resident.paid || 0} שקלים. `;
+    text += `מתוך ${resident.expected || 0} שקלים צפויים.`;
   }
   return yemot(text + ' לחזרה לתפריט לחץ 0.', { '0': `${base}?phone=${phone}&step=menu` });
 }
@@ -105,22 +109,19 @@ function paymentsStep(phone, resident, base) {
 function complaintStep(phone, resident, base) {
   const name = resident ? resident.name : phone;
   console.log(`COMPLAINT: ${name} at ${new Date().toISOString()}`);
-  const text = 'תלונתך התקבלה ותועברה לועד הבית. ועד הבית יחזור אליך בהקדם. תודה. לחזרה לתפריט לחץ 0.';
-  return yemot(text, { '0': `${base}?phone=${phone}&step=menu` });
+  return yemot('תלונתך התקבלה ותועברה לועד הבית. ועד הבית יחזור אליך בהקדם. תודה. לחזרה לתפריט לחץ 0.',
+    { '0': `${base}?phone=${phone}&step=menu` });
 }
  
-function announcementStep(phone, base) {
-  const ann = store.announcement || 'אין הודעה חדשה מהועד בית כרגע.';
-  const text = `הודעה מועד הבית: ${ann}. לחזרה לתפריט לחץ 0.`;
-  return yemot(text, { '0': `${base}?phone=${phone}&step=menu` });
+function announcementStep(phone, announcement, base) {
+  const ann = announcement || 'אין הודעה חדשה מהועד בית כרגע.';
+  return yemot(`הודעה מועד הבית: ${ann}. לחזרה לתפריט לחץ 0.`,
+    { '0': `${base}?phone=${phone}&step=menu` });
 }
  
-// ─── Helpers ─────────────────────────────────────────
- 
+// ─── Helpers ──────────────────────────────────────
 function yemot(text, routes) {
-  const routeStr = Object.entries(routes)
-    .map(([digit, url]) => `${digit}=${url}`)
-    .join(',');
+  const routeStr = Object.entries(routes).map(([d, u]) => `${d}=${u}`).join(',');
   return `id_list_message,1,${text}\nid_list_ivr,${routeStr}`;
 }
  
@@ -130,19 +131,10 @@ function normalizePhone(phone) {
   return phone;
 }
  
-function findResident(phone) {
+function findResident(residents, phone) {
   if (!phone) return null;
-  return store.residents.find(r => {
-    return normalizePhone(r.phone1 || '') === phone ||
-           normalizePhone(r.phone2 || '') === phone;
-  }) || null;
-}
- 
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
-                  'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  return `${d.getDate()} ב${months[d.getMonth()]} ${d.getFullYear()}`;
+  return residents.find(r =>
+    normalizePhone(r.phone || '') === phone ||
+    normalizePhone(r.phone2 || '') === phone
+  ) || null;
 }
