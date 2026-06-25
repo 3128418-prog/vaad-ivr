@@ -1,8 +1,8 @@
-// api/ivr.js — Vercel Serverless Function with Upstash Redis
+// api/ivr.js — Vercel Serverless Function
+// פורמט תואם ימות המשיח עם say_api_answer=yes
  
 const SECRET = process.env.API_SECRET || 'vaad123';
  
-// ─── Redis helpers via Upstash REST API ───────────
 async function kvGet(key) {
   try {
     var url = process.env.KV_REST_API_URL;
@@ -15,14 +15,8 @@ async function kvGet(key) {
     var j = await r.json();
     if (!j.result) return null;
     var val = j.result;
-    // If string, try to parse
-    if (typeof val === 'string') {
-      try { val = JSON.parse(val); } catch(e) {}
-    }
-    // If still string (double-encoded), parse again
-    if (typeof val === 'string') {
-      try { val = JSON.parse(val); } catch(e) {}
-    }
+    if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) {} }
+    if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) {} }
     return val;
   } catch(e) { return null; }
 }
@@ -32,24 +26,19 @@ async function kvSet(key, value) {
     var url = process.env.KV_REST_API_URL;
     var token = process.env.KV_REST_API_TOKEN;
     if (!url || !token) return;
-    var body = JSON.stringify(JSON.stringify(value));
     await fetch(url + '/set/' + encodeURIComponent(key), {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: body
+      body: JSON.stringify(JSON.stringify(value))
     });
   } catch(e) {}
 }
  
-// ─── Main handler ─────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
- 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
  
   // POST — receive data from website
   if (req.method === 'POST') {
@@ -66,85 +55,81 @@ export default async function handler(req, res) {
     }
   }
  
-  // GET health check
+  // GET health
   if (req.query.health) {
-    try {
-      var residents = await kvGet('vaad:residents') || [];
-      return res.status(200).json({ ok: true, residents: residents.length });
-    } catch(e) {
-      return res.status(200).json({ ok: true, residents: 0 });
-    }
+    var residents = await kvGet('vaad:residents') || [];
+    return res.status(200).json({ ok: true, residents: Array.isArray(residents) ? residents.length : 0 });
   }
  
-  // GET IVR — called by Yemot HaMashiach
+  // GET IVR — ימות המשיח
   try {
     var phone = normalizePhone(req.query.phone || '');
     var step  = req.query.step || 'menu';
-    var host  = req.headers.host || '';
-    var base  = 'https://' + host + '/api/ivr';
+    var digit = req.query.ApiDig || req.query.digit || '';
+    var base  = 'https://' + req.headers.host + '/api/ivr';
  
     var residents    = await kvGet('vaad:residents') || [];
     var announcement = await kvGet('vaad:announcement') || '';
-    var resident     = findResident(residents, phone);
+    if (!Array.isArray(residents)) residents = [];
+    var resident = findResident(residents, phone);
  
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
-    var text = '';
-    if (step === 'debt') {
-      text = debtText(resident);
-    } else if (step === 'payments') {
-      text = paymentsText(resident);
-    } else if (step === 'complaint') {
-      text = 'תלונתך התקבלה ותועברה לועד הבית. ועד הבית יחזור אליך בהקדם. תודה.';
-    } else if (step === 'announcement') {
-      text = 'הודעה מועד הבית: ' + (announcement || 'אין הודעה חדשה כרגע.');
-    } else {
-      // menu
+    // ── תפריט ראשי
+    if (step === 'menu' || !step) {
       var name = resident ? resident.name : 'דייר יקר';
-      text = 'שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.';
+      return res.send(
+        'read=menu,,1,שלום ' + name + '. ' +
+        'לשמיעת יתרת החוב לחץ 1. ' +
+        'לשמיעת תשלומים לחץ 2. ' +
+        'לדיווח על תקלה לחץ 3. ' +
+        'לשמיעת הודעה מהועד לחץ 4.,DIGITS,1,10,,'
+      );
     }
  
-    var routes = {
-      '1': base + '?phone=' + phone + '&step=debt',
-      '2': base + '?phone=' + phone + '&step=payments',
-      '3': base + '?phone=' + phone + '&step=complaint',
-      '4': base + '?phone=' + phone + '&step=announcement',
-      '0': base + '?phone=' + phone + '&step=menu'
-    };
- 
-    if (step !== 'menu') {
-      routes = { '0': base + '?phone=' + phone + '&step=menu' };
-      text += ' לחזרה לתפריט לחץ 0.';
+    // ── טיפול בהקשה מהתפריט
+    if (step === 'menu_answer') {
+      if (digit === '1') return res.send('go_to_folder=' + base.replace('https://', '') + '?step=debt&phone=' + phone);
+      if (digit === '2') return res.send('go_to_folder=' + base.replace('https://', '') + '?step=payments&phone=' + phone);
+      if (digit === '3') return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.');
+      if (digit === '4') {
+        var ann = announcement || 'אין הודעה חדשה מהועד בית.';
+        return res.send('id_list_message=t-' + ann);
+      }
+      return res.send('go_to_folder=/');
     }
  
-    return res.send(buildYemot(text, routes));
+    // ── חוב
+    if (step === 'debt') {
+      var txt;
+      if (!resident) {
+        txt = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
+      } else {
+        var debt = Math.round(resident.debt || 0);
+        txt = debt <= 0
+          ? 'שלום ' + resident.name + '. חשבונך מאוזן. אין חוב פתוח. תודה.'
+          : 'שלום ' + resident.name + '. יתרת החוב שלך היא ' + debt + ' שקלים.';
+      }
+      return res.send('id_list_message=t-' + txt);
+    }
+ 
+    // ── תשלומים
+    if (step === 'payments') {
+      var txt2;
+      if (!resident) {
+        txt2 = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
+      } else {
+        txt2 = 'שלום ' + resident.name + '. שולם סך הכל ' + (resident.paid || 0) + ' שקלים מתוך ' + (resident.expected || 0) + ' שקלים צפויים.';
+      }
+      return res.send('id_list_message=t-' + txt2);
+    }
+ 
+    return res.send('go_to_folder=/');
  
   } catch(e) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    return res.send(buildYemot('שגיאה במערכת. אנא נסה שנית מאוחר יותר.', {}));
+    return res.send('id_list_message=t-שגיאה במערכת. אנא נסה שנית.');
   }
-}
- 
-// ─── Helpers ──────────────────────────────────────
-function debtText(resident) {
-  if (!resident) return 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-  var balance = Math.round(resident.debt || 0);
-  if (balance <= 0) return 'שלום ' + resident.name + '. חשבונך מאוזן. אין חוב פתוח. תודה.';
-  return 'שלום ' + resident.name + '. יתרת החוב שלך היא ' + balance + ' שקלים. אנא סדר את התשלום בהקדם.';
-}
- 
-function paymentsText(resident) {
-  if (!resident) return 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-  return 'שלום ' + resident.name + '. שולם סך הכל ' + (resident.paid || 0) + ' שקלים. מתוך ' + (resident.expected || 0) + ' שקלים צפויים.';
-}
- 
-function buildYemot(text, routes) {
-  var lines = 'id_list_message,1,' + text;
-  var routeArr = Object.keys(routes).map(function(d) { return d + '=' + routes[d]; });
-  if (routeArr.length > 0) {
-    lines += '\nid_list_ivr,' + routeArr.join(',');
-  }
-  return lines;
 }
  
 function normalizePhone(phone) {
@@ -154,8 +139,7 @@ function normalizePhone(phone) {
 }
  
 function findResident(residents, phone) {
-  if (!phone) return null;
-  if (!residents || !Array.isArray(residents) || !residents.length) return null;
+  if (!phone || !residents.length) return null;
   return residents.find(function(r) {
     return normalizePhone(r.phone || '') === phone ||
            normalizePhone(r.phone2 || '') === phone;
