@@ -226,14 +226,16 @@ export default async function handler(req, res) {
                       ' נרשם בהצלחה בתאריך ' + todayStr() + '. תודה.');
     }
  
-    // 8/7/2 — שמירת סכום זמני (שלב א)
+    // שמירת סכום זמני (שלב א) — משמש לתשלום ולהוצאה
     if (step === 'save_amount') {
       var amt = parseInt(req.query.ApiDig || '0') || 0;
-      if (!amt) return res.send('לא הוקש סכום תקין. חוזר לתפריט.');
-      // שמור זמנית לפי טלפון
+      console.log('save_amount: ApiDig=', req.query.ApiDig, 'phone=', phone, 'amt=', amt);
+      if (!amt) {
+        return res.send('id_list_message=t-לא הוקש סכום תקין. חוזר לתפריט.&go_to_folder=/8/7&');
+      }
       var tempKey = 'vaad:temp_amount:' + (phone || 'unknown');
-      await kvSet(tempKey, amt);
-      return res.send(''); // המשך לשלוחה הבאה
+      await kvSet(tempKey, String(amt));
+      return res.send('id_list_message=&');
     }
  
     // 8/7/2 — רישום הוצאה
