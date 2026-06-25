@@ -109,10 +109,11 @@ export default async function handler(req, res) {
       return res.send('id_list_message=t-' + ann);
     }
  
-    // תפריט ראשי - read מבקש הקשה וימות שולח אותה חזרה כ-ApiDig
+    // תפריט ראשי - השמעה + ניתוב לשלוחות פנימיות
     var name = resident ? resident.name : 'דייר יקר';
     return res.send(
-      'read=ApiDig,,1,שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.,DIGITS,1,10,,'
+      'id_list_message=t-שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.\n' +
+      'id_list_ivr=1=' + base + '?step=debt&ApiPhone=' + p + ',2=' + base + '?step=payments&ApiPhone=' + p + ',3=' + base + '?step=complaint&ApiPhone=' + p + ',4=' + base + '?step=announcement&ApiPhone=' + p
     );
  
   } catch(e) {
