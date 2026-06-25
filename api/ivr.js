@@ -1,6 +1,6 @@
 
 // api/ivr.js — Vercel Serverless Function
-// פורמט תואם ימות המשיח — גרסה מתוקנת
+// גרסה מתוקנת: שלוחה אחת, ימות קורא חזרה עם ApiDig
  
 const SECRET = process.env.API_SECRET || 'vaad123';
  
@@ -62,11 +62,12 @@ export default async function handler(req, res) {
   }
  
   // GET — IVR
+  // ימות שולח: ApiPhone, ApiDig (ההקשה שלחצו), ApiCallId
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
   try {
     var phone = normalizePhone(req.query.ApiPhone || req.query.phone || '');
-    var step  = req.query.step || 'menu';
+    var digit = req.query.ApiDig || '';   // ההקשה שהמשתמש לחץ
  
     var residents    = await kvGet('vaad:residents') || [];
     var announcement = await kvGet('vaad:announcement') || '';
@@ -74,22 +75,9 @@ export default async function handler(req, res) {
     var resident = findResident(residents, phone);
     var name = resident ? resident.name : 'דייר יקר';
  
-    // ─── שלב 1: תפריט ראשי ───
-    // שלוחה 8: say_api_answer=yes → ימות ישמע את הטקסט ואז יפנה לפי הקשה (api_1..api_4)
-    if (step === 'menu') {
-      var greeting = 'שלום ' + name + '. ';
-      greeting += 'לשמיעת יתרת החוב לחץ 1. ';
-      greeting += 'לשמיעת תשלומים לחץ 2. ';
-      greeting += 'לדיווח על תקלה לחץ 3. ';
-      greeting += 'לשמיעת הודעה מהועד לחץ 4.';
-      // say_api_answer=yes מצפה לטקסט נקי בלי id_list_message
-      return res.send(greeting);
-    }
- 
-    // ─── שלב 2: שלוחות פנימיות (8/1, 8/2, 8/3, 8/4) ───
-    // שלוחות אלו: type=api, api_link=...?step=debt וכו', say_api_answer=yes
- 
-    if (step === 'debt') {
+    // אם הגיע ApiDig — המשתמש כבר שמע את התפריט ולחץ משהו
+    if (digit === '1') {
+      // חוב
       var txt;
       if (!resident) {
         txt = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
@@ -98,33 +86,40 @@ export default async function handler(req, res) {
       } else {
         txt = 'שלום ' + name + '. יתרת החוב שלך היא ' + Math.round(resident.debt || 0) + ' שקלים.';
       }
-      return res.send(txt);
+      return res.send('id_list_message=t-' + txt + '&');
     }
  
-    if (step === 'payments') {
+    if (digit === '2') {
+      // תשלומים
       var txt2;
       if (!resident) {
         txt2 = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
       } else {
         txt2 = 'שלום ' + name + '. שולם סך הכל ' + (resident.paid || 0) + ' שקלים מתוך ' + (resident.expected || 0) + ' שקלים צפויים.';
       }
-      return res.send(txt2);
+      return res.send('id_list_message=t-' + txt2 + '&');
     }
  
-    if (step === 'complaint') {
-      return res.send('תלונתך התקבלה ותועברה לועד הבית. תודה.');
+    if (digit === '3') {
+      return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.&');
     }
  
-    if (step === 'announcement') {
+    if (digit === '4') {
       var ann = announcement || 'אין הודעה חדשה מהועד הבית.';
-      return res.send(ann);
+      return res.send('id_list_message=t-' + ann + '&');
     }
  
-    // fallback
-    return res.send('שגיאה במערכת. אנא נסה שנית.');
+    // אין ApiDig (קריאה ראשונה) — הצג תפריט
+    // ימות ישמיע את הטקסט, יחכה להקשה (read בהגדרות), ויקרא שוב עם ApiDig
+    var menu = 'שלום ' + name + '. ';
+    menu += 'לשמיעת יתרת החוב לחץ 1. ';
+    menu += 'לשמיעת תשלומים לחץ 2. ';
+    menu += 'לדיווח על תקלה לחץ 3. ';
+    menu += 'לשמיעת הודעה מהועד לחץ 4.';
+    return res.send('id_list_message=t-' + menu + '&');
  
   } catch(e) {
-    return res.send('שגיאה במערכת. אנא נסה שנית.');
+    return res.send('id_list_message=t-שגיאה במערכת. אנא נסה שנית.&');
   }
 }
  
