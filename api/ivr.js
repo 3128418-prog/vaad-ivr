@@ -1,5 +1,6 @@
+
 // api/ivr.js — Vercel Serverless Function
-// פורמט תואם ימות המשיח עם say_api_answer=yes
+// פורמט תואם ימות המשיח - read עם goto לכל הקשה
  
 const SECRET = process.env.API_SECRET || 'vaad123';
  
@@ -61,11 +62,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, residents: Array.isArray(residents) ? residents.length : 0 });
   }
  
-  // GET IVR — ימות המשיח
+  // GET IVR
   try {
     var phone = normalizePhone(req.query.phone || '');
     var step  = req.query.step || 'menu';
-    var digit = req.query.ApiDig || req.query.digit || '';
     var base  = 'https://' + req.headers.host + '/api/ivr';
  
     var residents    = await kvGet('vaad:residents') || [];
@@ -75,31 +75,8 @@ export default async function handler(req, res) {
  
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
-    // ── תפריט ראשי
-    if (step === 'menu' || !step) {
-      var name = resident ? resident.name : 'דייר יקר';
-      return res.send(
-        'read=menu,,1,שלום ' + name + '. ' +
-        'לשמיעת יתרת החוב לחץ 1. ' +
-        'לשמיעת תשלומים לחץ 2. ' +
-        'לדיווח על תקלה לחץ 3. ' +
-        'לשמיעת הודעה מהועד לחץ 4.,DIGITS,1,10,,'
-      );
-    }
+    var p = encodeURIComponent(phone);
  
-    // ── טיפול בהקשה מהתפריט
-    if (step === 'menu_answer') {
-      if (digit === '1') return res.send('go_to_folder=' + base.replace('https://', '') + '?step=debt&phone=' + phone);
-      if (digit === '2') return res.send('go_to_folder=' + base.replace('https://', '') + '?step=payments&phone=' + phone);
-      if (digit === '3') return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.');
-      if (digit === '4') {
-        var ann = announcement || 'אין הודעה חדשה מהועד בית.';
-        return res.send('id_list_message=t-' + ann);
-      }
-      return res.send('go_to_folder=/');
-    }
- 
-    // ── חוב
     if (step === 'debt') {
       var txt;
       if (!resident) {
@@ -110,10 +87,12 @@ export default async function handler(req, res) {
           ? 'שלום ' + resident.name + '. חשבונך מאוזן. אין חוב פתוח. תודה.'
           : 'שלום ' + resident.name + '. יתרת החוב שלך היא ' + debt + ' שקלים.';
       }
-      return res.send('id_list_message=t-' + txt);
+      return res.send(
+        'id_list_message=t-' + txt + '\n' +
+        'goto=' + base + '?phone=' + p + '&step=menu'
+      );
     }
  
-    // ── תשלומים
     if (step === 'payments') {
       var txt2;
       if (!resident) {
@@ -121,10 +100,36 @@ export default async function handler(req, res) {
       } else {
         txt2 = 'שלום ' + resident.name + '. שולם סך הכל ' + (resident.paid || 0) + ' שקלים מתוך ' + (resident.expected || 0) + ' שקלים צפויים.';
       }
-      return res.send('id_list_message=t-' + txt2);
+      return res.send(
+        'id_list_message=t-' + txt2 + '\n' +
+        'goto=' + base + '?phone=' + p + '&step=menu'
+      );
     }
  
-    return res.send('go_to_folder=/');
+    if (step === 'complaint') {
+      return res.send(
+        'id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.\n' +
+        'goto=' + base + '?phone=' + p + '&step=menu'
+      );
+    }
+ 
+    if (step === 'announcement') {
+      var ann = announcement || 'אין הודעה חדשה מהועד בית.';
+      return res.send(
+        'id_list_message=t-' + ann + '\n' +
+        'goto=' + base + '?phone=' + p + '&step=menu'
+      );
+    }
+ 
+    // תפריט ראשי — read עם ניתוב לפי הקשה
+    var name = resident ? resident.name : 'דייר יקר';
+    return res.send(
+      'read=ApiDig,,1,שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.,DIGITS,1,10,,\n' +
+      'goto_1=' + base + '?phone=' + p + '&step=debt\n' +
+      'goto_2=' + base + '?phone=' + p + '&step=payments\n' +
+      'goto_3=' + base + '?phone=' + p + '&step=complaint\n' +
+      'goto_4=' + base + '?phone=' + p + '&step=announcement'
+    );
  
   } catch(e) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
