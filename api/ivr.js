@@ -1,3 +1,4 @@
+
 // api/ivr.js — Vercel Serverless Function
 // פורמט תואם ימות המשיח
  
@@ -101,10 +102,10 @@ export default async function handler(req, res) {
  
     // תפריט ראשי
     var name = resident ? resident.name : 'דייר יקר';
-    // פורמט: id_list_message להשמעה + id_list_ivr לניתוב
+    // ימות שולח ApiPhone אוטומטית — אין צורך להעביר phone ב-URL
     return res.send(
       'id_list_message=t-שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.\n' +
-      'id_list_ivr=1=' + base + '?phone=' + p + '&step=debt,2=' + base + '?phone=' + p + '&step=payments,3=' + base + '?phone=' + p + '&step=complaint,4=' + base + '?phone=' + p + '&step=announcement'
+      'id_list_ivr=1=' + base + '?step=debt,2=' + base + '?step=payments,3=' + base + '?step=complaint,4=' + base + '?step=announcement'
     );
  
   } catch(e) {
