@@ -208,10 +208,13 @@ export default async function handler(req, res) {
  
     // 8/7/1 — רישום תשלום מזומן
     if (step === 'addpay') {
-      var digit   = req.query.ApiDig || '';
       var resPhone = req.query.resphone || '';
-      var amount  = parseInt(digit) || 0;
-      if (!amount) return res.send('לא הוקש סכום תקין. אנא נסה שנית.');
+      // קרא סכום שמור זמנית או מ-ApiDig ישירות
+      var tempKeyP = 'vaad:temp_amount:' + (phone || 'unknown');
+      var savedAmtP = await kvGet(tempKeyP);
+      var amount  = parseInt(savedAmtP || req.query.ApiDig || '0') || 0;
+      if (!amount) return res.send('לא נמצא סכום תקין. אנא נסה שנית.');
+      await kvSet(tempKeyP, null);
       var target = resPhone ? findResident(residents, normalizePhone(resPhone)) : null;
       var rName  = target ? target.name : 'דייר לא ידוע';
       var ivrPay = { phone: resPhone, name: rName, amount: amount,
@@ -223,13 +226,27 @@ export default async function handler(req, res) {
                       ' נרשם בהצלחה בתאריך ' + todayStr() + '. תודה.');
     }
  
+    // 8/7/2 — שמירת סכום זמני (שלב א)
+    if (step === 'save_amount') {
+      var amt = parseInt(req.query.ApiDig || '0') || 0;
+      if (!amt) return res.send('לא הוקש סכום תקין. חוזר לתפריט.');
+      // שמור זמנית לפי טלפון
+      var tempKey = 'vaad:temp_amount:' + (phone || 'unknown');
+      await kvSet(tempKey, amt);
+      return res.send(''); // המשך לשלוחה הבאה
+    }
+ 
     // 8/7/2 — רישום הוצאה
     if (step === 'addexpense') {
-      var digit2  = req.query.ApiDig || '';
+      // קרא סכום שנשמר זמנית בשלב הקודם
+      var tempKey2 = 'vaad:temp_amount:' + (phone || 'unknown');
+      var savedAmt = await kvGet(tempKey2);
+      var amount2  = parseInt(savedAmt || req.query.ApiDig || '0') || 0;
       // תיאור ההוצאה: מתמלול דיבור (ApiSpeechResult) או מטקסט (desc)
       var desc2   = (req.query.ApiSpeechResult || req.query.desc || '').trim() || 'הוצאה כללית';
-      var amount2 = parseInt(digit2) || 0;
-      if (!amount2) return res.send('לא הוקש סכום תקין. אנא נסה שנית.');
+      if (!amount2) return res.send('לא נמצא סכום תקין. אנא נסה שנית.');
+      // מחק מפתח זמני
+      await kvSet(tempKey2, null);
       var ivrExp = { amount: amount2, desc: desc2, date: todayStr(),
                      cat: 'IVR', id: 'ivr_' + Date.now() };
       var ivrExps2 = await kvGet('vaad:ivr_expenses') || [];
