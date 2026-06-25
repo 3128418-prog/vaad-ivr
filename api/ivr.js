@@ -209,12 +209,11 @@ export default async function handler(req, res) {
     // 8/7/1 — רישום תשלום מזומן
     if (step === 'addpay') {
       var resPhone = req.query.resphone || '';
-      // קרא סכום שמור זמנית או מ-ApiDig ישירות
       var tempKeyP = 'vaad:temp_amount:' + (phone || 'unknown');
       var savedAmtP = await kvGet(tempKeyP);
-      var amount  = parseInt(savedAmtP || req.query.ApiDig || '0') || 0;
+      var amount  = parseInt(req.query.ApiDig || savedAmtP || '0') || 0;
       if (!amount) return res.send('לא נמצא סכום תקין. אנא נסה שנית.');
-      await kvSet(tempKeyP, null);
+      if (savedAmtP) await kvSet(tempKeyP, null);
       var target = resPhone ? findResident(residents, normalizePhone(resPhone)) : null;
       var rName  = target ? target.name : 'דייר לא ידוע';
       var ivrPay = { phone: resPhone, name: rName, amount: amount,
@@ -246,15 +245,14 @@ export default async function handler(req, res) {
  
     // 8/7/2 — רישום הוצאה
     if (step === 'addexpense') {
-      // קרא סכום שנשמר זמנית בשלב הקודם
+      // קרא סכום מ-ApiDig (מגיע ישירות מ-read_tocall של ימות)
+      // או מ-Redis אם נשמר בשלב קודם
       var tempKey2 = 'vaad:temp_amount:' + (phone || 'unknown');
       var savedAmt = await kvGet(tempKey2);
-      var amount2  = parseInt(savedAmt || req.query.ApiDig || '0') || 0;
-      // תיאור ההוצאה: מתמלול דיבור (ApiSpeechResult) או מטקסט (desc)
-      var desc2   = (req.query.ApiSpeechResult || req.query.desc || '').trim() || 'הוצאה כללית';
+      var amount2  = parseInt(req.query.ApiDig || savedAmt || '0') || 0;
+      var desc2    = (req.query.ApiSpeechResult || req.query.desc || '').trim() || 'הוצאה כללית';
       if (!amount2) return res.send('לא נמצא סכום תקין. אנא נסה שנית.');
-      // מחק מפתח זמני
-      await kvSet(tempKey2, null);
+      if (savedAmt) await kvSet(tempKey2, null); // נקה אם היה שמור
       var ivrExp = { amount: amount2, desc: desc2, date: todayStr(),
                      cat: 'IVR', id: 'ivr_' + Date.now() };
       var ivrExps2 = await kvGet('vaad:ivr_expenses') || [];
