@@ -235,6 +235,11 @@ export default async function handler(req, res) {
       }
       var tempKey = 'vaad:temp_amount:' + (phone || 'unknown');
       await kvSet(tempKey, String(amt));
+      // העבר לשלוחה הבאה לפי סוג (הוצאה/תשלום)
+      var nextFolder = req.query.next || '';
+      if (nextFolder) {
+        return res.send('go_to_folder=' + nextFolder + '&');
+      }
       return res.send('id_list_message=&');
     }
  
