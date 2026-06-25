@@ -1,4 +1,3 @@
-
 // api/ivr.js — Vercel Serverless Function
 // פורמט תואם ימות המשיח
  
@@ -63,7 +62,7 @@ export default async function handler(req, res) {
  
   // GET IVR
   try {
-    var phone = normalizePhone(req.query.phone || '');
+    var phone = normalizePhone(req.query.ApiPhone || req.query.phone || '');
     var step  = req.query.step || 'menu';
     var base  = 'https://' + req.headers.host + '/api/ivr';
     var p     = phone;
