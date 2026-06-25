@@ -226,7 +226,8 @@ export default async function handler(req, res) {
     // 8/7/2 — רישום הוצאה
     if (step === 'addexpense') {
       var digit2  = req.query.ApiDig || '';
-      var desc2   = req.query.desc   || 'הוצאה כללית';
+      // תיאור ההוצאה: מתמלול דיבור (ApiSpeechResult) או מטקסט (desc)
+      var desc2   = (req.query.ApiSpeechResult || req.query.desc || '').trim() || 'הוצאה כללית';
       var amount2 = parseInt(digit2) || 0;
       if (!amount2) return res.send('לא הוקש סכום תקין. אנא נסה שנית.');
       var ivrExp = { amount: amount2, desc: desc2, date: todayStr(),
@@ -234,7 +235,8 @@ export default async function handler(req, res) {
       var ivrExps2 = await kvGet('vaad:ivr_expenses') || [];
       ivrExps2.push(ivrExp);
       await kvSet('vaad:ivr_expenses', ivrExps2);
-      return res.send('הוצאה של ' + amount2 + ' שקלים נרשמה בהצלחה בתאריך ' + todayStr() + '. תודה.');
+      return res.send('הוצאה של ' + amount2 + ' שקלים עבור ' + desc2 +
+                      ' נרשמה בהצלחה בתאריך ' + todayStr() + '. תודה.');
     }
  
     // 8/7/3 — 10 הוצאות אחרונות
