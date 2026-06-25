@@ -1,6 +1,5 @@
 
-// api/ivr.js — Vercel Serverless Function
-// גרסה מתוקנת: שלוחה אחת, ימות קורא חזרה עם ApiDig
+// api/ivr.js — גרסת דיאגנוסטיקה
  
 const SECRET = process.env.API_SECRET || 'vaad123';
  
@@ -61,13 +60,21 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, residents: Array.isArray(residents) ? residents.length : 0 });
   }
  
+  // לוג כל הפרמטרים שימות שולח — יופיע ב-Vercel Logs
+  console.log('=== YEMOT REQUEST ===');
+  console.log('METHOD:', req.method);
+  console.log('ALL QUERY PARAMS:', JSON.stringify(req.query));
+  console.log('ALL BODY:', JSON.stringify(req.body));
+  console.log('===================');
+ 
   // GET — IVR
-  // ימות שולח: ApiPhone, ApiDig (ההקשה שלחצו), ApiCallId
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
   try {
     var phone = normalizePhone(req.query.ApiPhone || req.query.phone || '');
-    var digit = req.query.ApiDig || '';   // ההקשה שהמשתמש לחץ
+    var digit = req.query.ApiDig || '';
+ 
+    console.log('phone:', phone, '| digit:', digit);
  
     var residents    = await kvGet('vaad:residents') || [];
     var announcement = await kvGet('vaad:announcement') || '';
@@ -75,50 +82,49 @@ export default async function handler(req, res) {
     var resident = findResident(residents, phone);
     var name = resident ? resident.name : 'דייר יקר';
  
-    // אם הגיע ApiDig — המשתמש כבר שמע את התפריט ולחץ משהו
+    console.log('resident found:', resident ? resident.name : 'NONE');
+    console.log('digit value:', JSON.stringify(digit), '| length:', digit.length);
+ 
+    // הקשה 1 — חוב
     if (digit === '1') {
-      // חוב
-      var txt;
-      if (!resident) {
-        txt = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-      } else if (Math.round(resident.debt || 0) <= 0) {
-        txt = 'שלום ' + name + '. חשבונך מאוזן. אין חוב פתוח. תודה.';
-      } else {
-        txt = 'שלום ' + name + '. יתרת החוב שלך היא ' + Math.round(resident.debt || 0) + ' שקלים.';
-      }
+      var txt = !resident
+        ? 'מספר הטלפון שלך אינו מזוהה במערכת.'
+        : Math.round(resident.debt || 0) <= 0
+          ? 'שלום ' + name + '. חשבונך מאוזן. אין חוב פתוח.'
+          : 'שלום ' + name + '. יתרת החוב שלך היא ' + Math.round(resident.debt || 0) + ' שקלים.';
+      console.log('RETURNING debt:', txt);
       return res.send('id_list_message=t-' + txt + '&');
     }
  
+    // הקשה 2 — תשלומים
     if (digit === '2') {
-      // תשלומים
-      var txt2;
-      if (!resident) {
-        txt2 = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-      } else {
-        txt2 = 'שלום ' + name + '. שולם סך הכל ' + (resident.paid || 0) + ' שקלים מתוך ' + (resident.expected || 0) + ' שקלים צפויים.';
-      }
+      var txt2 = !resident
+        ? 'מספר הטלפון שלך אינו מזוהה במערכת.'
+        : 'שלום ' + name + '. שולם ' + (resident.paid || 0) + ' מתוך ' + (resident.expected || 0) + ' שקלים.';
+      console.log('RETURNING payments:', txt2);
       return res.send('id_list_message=t-' + txt2 + '&');
     }
  
+    // הקשה 3 — תלונה
     if (digit === '3') {
+      console.log('RETURNING complaint');
       return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.&');
     }
  
+    // הקשה 4 — הודעה
     if (digit === '4') {
       var ann = announcement || 'אין הודעה חדשה מהועד הבית.';
+      console.log('RETURNING announcement:', ann);
       return res.send('id_list_message=t-' + ann + '&');
     }
  
-    // אין ApiDig (קריאה ראשונה) — הצג תפריט
-    // ימות ישמיע את הטקסט, יחכה להקשה (read בהגדרות), ויקרא שוב עם ApiDig
-    var menu = 'שלום ' + name + '. ';
-    menu += 'לשמיעת יתרת החוב לחץ 1. ';
-    menu += 'לשמיעת תשלומים לחץ 2. ';
-    menu += 'לדיווח על תקלה לחץ 3. ';
-    menu += 'לשמיעת הודעה מהועד לחץ 4.';
+    // אין הקשה — תפריט ראשי
+    var menu = 'שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.';
+    console.log('RETURNING menu for:', name);
     return res.send('id_list_message=t-' + menu + '&');
  
   } catch(e) {
+    console.log('ERROR:', e.message, e.stack);
     return res.send('id_list_message=t-שגיאה במערכת. אנא נסה שנית.&');
   }
 }
