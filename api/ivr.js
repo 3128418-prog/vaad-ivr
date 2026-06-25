@@ -130,7 +130,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, residents: residents.length });
   }
  
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'no-cache, no-store');
+  res.setHeader('X-Accel-Buffering', 'no');
  
   try {
     var phone = normalizePhone(req.query.ApiPhone || req.query.phone || '');
