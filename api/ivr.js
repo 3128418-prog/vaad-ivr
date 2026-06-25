@@ -335,29 +335,30 @@ export default async function handler(req, res) {
     if (step === 'vaad_expenses') {
       var allExps = await kvGet('vaad:ivr_expenses') || [];
       var siteExps = (expData.recent || []);
-      var combined = sortByDate(allExps.concat(siteExps)).slice(0,10);
-      if (!combined.length) return res.send('לא נמצאו הוצאות רשומות במערכת.');
-      var lines3 = combined.map(function(e, i) {
-        return (i+1) + '. ' + hebrewDate(e.date) + ': ' + (e.desc||'הוצאה') +
-               ', ' + (e.amount||0) + ' שקלים.';
-      });
+      var combined = sortByDate(allExps.concat(siteExps)).slice(0,5); // 5 במקום 10
+      if (!combined.length) return res.send('לא נמצאו הוצאות.');
       var total3 = combined.reduce(function(s,e){ return s+(e.amount||0); }, 0);
-      return res.send('10 ההוצאות האחרונות. סה"כ: ' + total3 + ' שקלים. ' +
-                      lines3.join(' ') + ' סוף רשימה.');
+      var lines3 = combined.map(function(e) {
+        // תאריך קצר: DD/MM
+        var d = e.date ? e.date.split('.') : [];
+        var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
+        return (e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
+      });
+      return res.send('סה"כ ' + total3 + ' שקלים. ' + lines3.join(' '));
     }
  
     // 8/7/4 — 10 תשלומי מזומן אחרונים
     if (step === 'vaad_cashpays') {
       var cashPays = await kvGet('vaad:ivr_payments') || [];
-      var sorted   = sortByDate(cashPays).slice(0,10);
-      if (!sorted.length) return res.send('לא נמצאו תשלומי מזומן רשומים דרך הטלפון.');
-      var lines4 = sorted.map(function(p, i) {
-        return (i+1) + '. ' + hebrewDate(p.date) + ': ' + (p.name||'?') +
-               ', ' + (p.amount||0) + ' שקלים.';
-      });
+      var sorted   = sortByDate(cashPays).slice(0,5);
+      if (!sorted.length) return res.send('לא נמצאו תשלומי מזומן.');
       var total4 = sorted.reduce(function(s,p){ return s+(p.amount||0); }, 0);
-      return res.send('10 תשלומי המזומן האחרונים. סה"כ: ' + total4 + ' שקלים. ' +
-                      lines4.join(' ') + ' סוף רשימה.');
+      var lines4 = sorted.map(function(p) {
+        var d = p.date ? p.date.split('.') : [];
+        var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
+        return (p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
+      });
+      return res.send('סה"כ ' + total4 + ' שקלים. ' + lines4.join(' '));
     }
  
     // 8/7/5 — צינתוק לדייר לפי מספר דירה
