@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     if (step === 'menu') {
       var greeting = 'שלום ' + name + '.';
       // השמע ברכה ועבור לתפריט. שלוחת התפריט תשאל מה רוצים.
-      return res.send('id_list_message=t-' + greeting + '&go_to_folder=/8/menu&');
+return res.send('id_list_message=t-' + greeting + '&go_to_folder=/8/9&');
     }
  
     // ── שלב 2: שלוחות תוכן — say_api_answer=yes בכל שלוחה ──
