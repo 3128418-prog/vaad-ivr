@@ -90,31 +90,28 @@ export default async function handler(req, res) {
             ? 'שלום ' + resident.name + '. חשבונך מאוזן. אין חוב פתוח. תודה.'
             : 'שלום ' + resident.name + '. יתרת החוב שלך היא ' + Math.round(resident.debt||0) + ' שקלים.')
         : 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-      return res.send('id_list_message=t-' + txt);
+      return res.send('id_list_message=t-' + txt + '&');
     }
  
     if (step === 'payments') {
       var txt2 = resident
         ? 'שלום ' + resident.name + '. שולם סך הכל ' + (resident.paid||0) + ' שקלים מתוך ' + (resident.expected||0) + ' שקלים צפויים.'
         : 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-      return res.send('id_list_message=t-' + txt2);
+      return res.send('id_list_message=t-' + txt2 + '&');
     }
  
     if (step === 'complaint') {
-      return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.');
+      return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.&');
     }
  
     if (step === 'announcement') {
       var ann = announcement || 'אין הודעה חדשה מהועד בית.';
-      return res.send('id_list_message=t-' + ann);
+      return res.send('id_list_message=t-' + ann + '&');
     }
  
-    // תפריט ראשי - השמעה + ניתוב לשלוחות פנימיות
+    // תפריט ראשי - השמעה בלבד, הניתוב בשלוחות הפנימיות
     var name = resident ? resident.name : 'דייר יקר';
-    return res.send(
-      'id_list_message=t-שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.\n' +
-      'id_list_ivr=1=' + base + '?step=debt&ApiPhone=' + p + ',2=' + base + '?step=payments&ApiPhone=' + p + ',3=' + base + '?step=complaint&ApiPhone=' + p + ',4=' + base + '?step=announcement&ApiPhone=' + p
-    );
+    return res.send('id_list_message=t-שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.&');
  
   } catch(e) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
