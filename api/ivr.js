@@ -1,6 +1,6 @@
 
 // api/ivr.js — Vercel Serverless Function
-// פורמט תואם ימות המשיח - read עם goto לכל הקשה
+// פורמט תואם ימות המשיח
  
 const SECRET = process.env.API_SECRET || 'vaad123';
  
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
  
-  // POST — receive data from website
+  // POST
   if (req.method === 'POST') {
     try {
       var body = req.body || {};
@@ -49,8 +49,7 @@ export default async function handler(req, res) {
       if (s !== SECRET) return res.status(401).json({ error: 'Unauthorized' });
       if (body.residents) await kvSet('vaad:residents', body.residents);
       if (body.announcement !== undefined) await kvSet('vaad:announcement', body.announcement);
-      var count = body.residents ? body.residents.length : 0;
-      return res.status(200).json({ ok: true, count: count });
+      return res.status(200).json({ ok: true, count: body.residents ? body.residents.length : 0 });
     } catch(e) {
       return res.status(500).json({ error: e.message });
     }
@@ -67,6 +66,7 @@ export default async function handler(req, res) {
     var phone = normalizePhone(req.query.phone || '');
     var step  = req.query.step || 'menu';
     var base  = 'https://' + req.headers.host + '/api/ivr';
+    var p     = phone;
  
     var residents    = await kvGet('vaad:residents') || [];
     var announcement = await kvGet('vaad:announcement') || '';
@@ -75,60 +75,37 @@ export default async function handler(req, res) {
  
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
-    var p = encodeURIComponent(phone);
- 
     if (step === 'debt') {
-      var txt;
-      if (!resident) {
-        txt = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-      } else {
-        var debt = Math.round(resident.debt || 0);
-        txt = debt <= 0
-          ? 'שלום ' + resident.name + '. חשבונך מאוזן. אין חוב פתוח. תודה.'
-          : 'שלום ' + resident.name + '. יתרת החוב שלך היא ' + debt + ' שקלים.';
-      }
-      return res.send(
-        'id_list_message=t-' + txt + '\n' +
-        'goto=' + base + '?phone=' + p + '&step=menu'
-      );
+      var txt = resident
+        ? (Math.round(resident.debt||0) <= 0
+            ? 'שלום ' + resident.name + '. חשבונך מאוזן. אין חוב פתוח. תודה.'
+            : 'שלום ' + resident.name + '. יתרת החוב שלך היא ' + Math.round(resident.debt||0) + ' שקלים.')
+        : 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
+      return res.send('id_list_message=t-' + txt);
     }
  
     if (step === 'payments') {
-      var txt2;
-      if (!resident) {
-        txt2 = 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
-      } else {
-        txt2 = 'שלום ' + resident.name + '. שולם סך הכל ' + (resident.paid || 0) + ' שקלים מתוך ' + (resident.expected || 0) + ' שקלים צפויים.';
-      }
-      return res.send(
-        'id_list_message=t-' + txt2 + '\n' +
-        'goto=' + base + '?phone=' + p + '&step=menu'
-      );
+      var txt2 = resident
+        ? 'שלום ' + resident.name + '. שולם סך הכל ' + (resident.paid||0) + ' שקלים מתוך ' + (resident.expected||0) + ' שקלים צפויים.'
+        : 'מספר הטלפון שלך אינו מזוהה במערכת. אנא פנה לועד הבית.';
+      return res.send('id_list_message=t-' + txt2);
     }
  
     if (step === 'complaint') {
-      return res.send(
-        'id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.\n' +
-        'goto=' + base + '?phone=' + p + '&step=menu'
-      );
+      return res.send('id_list_message=t-תלונתך התקבלה ותועברה לועד הבית. תודה.');
     }
  
     if (step === 'announcement') {
       var ann = announcement || 'אין הודעה חדשה מהועד בית.';
-      return res.send(
-        'id_list_message=t-' + ann + '\n' +
-        'goto=' + base + '?phone=' + p + '&step=menu'
-      );
+      return res.send('id_list_message=t-' + ann);
     }
  
-    // תפריט ראשי — read עם ניתוב לפי הקשה
+    // תפריט ראשי
     var name = resident ? resident.name : 'דייר יקר';
+    // פורמט: id_list_message להשמעה + id_list_ivr לניתוב
     return res.send(
-      'read=ApiDig,,1,שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.,DIGITS,1,10,,\n' +
-      'goto_1=' + base + '?phone=' + p + '&step=debt\n' +
-      'goto_2=' + base + '?phone=' + p + '&step=payments\n' +
-      'goto_3=' + base + '?phone=' + p + '&step=complaint\n' +
-      'goto_4=' + base + '?phone=' + p + '&step=announcement'
+      'id_list_message=t-שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.\n' +
+      'id_list_ivr=1=' + base + '?phone=' + p + '&step=debt,2=' + base + '?phone=' + p + '&step=payments,3=' + base + '?phone=' + p + '&step=complaint,4=' + base + '?phone=' + p + '&step=announcement'
     );
  
   } catch(e) {
@@ -146,7 +123,7 @@ function normalizePhone(phone) {
 function findResident(residents, phone) {
   if (!phone || !residents.length) return null;
   return residents.find(function(r) {
-    return normalizePhone(r.phone || '') === phone ||
-           normalizePhone(r.phone2 || '') === phone;
+    return normalizePhone(r.phone||'') === phone ||
+           normalizePhone(r.phone2||'') === phone;
   }) || null;
 }
