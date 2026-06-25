@@ -137,9 +137,14 @@ export default async function handler(req, res) {
     var step  = req.query.step || 'menu';
     console.log('IVR step:', step, '| phone:', phone);
  
-    var residents    = await kvGet('vaad:residents') || [];
-    var announcement = await kvGet('vaad:announcement') || '';
-    var expData      = await kvGet('vaad:expenses') || { total: 0, recent: [] };
+    // טען רק מה שנחוץ לפי step — מונע timeout
+    var needsResidents = ['menu','debt','payments','paydetail','addpay','zinguk'].indexOf(step) >= 0;
+    var needsExpenses  = ['expenses','vaad_expenses'].indexOf(step) >= 0;
+    var needsAnnounce  = step === 'announcement';
+ 
+    var residents    = needsResidents ? (await kvGet('vaad:residents') || []) : [];
+    var announcement = needsAnnounce  ? (await kvGet('vaad:announcement') || '') : '';
+    var expData      = needsExpenses  ? (await kvGet('vaad:expenses') || { total: 0, recent: [] }) : { total: 0, recent: [] };
     if (!Array.isArray(residents)) residents = [];
  
     var resident = findResident(residents, phone);
