@@ -207,6 +207,12 @@ export default async function handler(req, res) {
     // ════════════════════════════════════════════════
  
     // 8/7/1 — רישום תשלום מזומן
+    // DEBUG — מחזיר את כל הפרמטרים שימות שלח
+    if (step === 'debug') {
+      var allParams = JSON.stringify(req.query);
+      return res.send('id_list_message=t-' + allParams + '&');
+    }
+ 
     if (step === 'addpay') {
       var resPhone = req.query.resphone || '';
       var tempKeyP = 'vaad:temp_amount:' + (phone || 'unknown');
@@ -223,6 +229,62 @@ export default async function handler(req, res) {
       await kvSet('vaad:ivr_payments', ivrPays);
       return res.send('תשלום של ' + amount + ' שקלים לדייר ' + rName +
                       ' נרשם בהצלחה בתאריך ' + todayStr() + '. תודה.');
+    }
+ 
+    // שמירת קטגוריה זמנית
+    if (step === 'save_cat') {
+      var cat = req.query.cat || 'אחר';
+      var choice = req.query.ApiDig || '1'; // 1=היום, 2=תאריך אחר
+      var tempCatKey = 'vaad:temp_cat:' + (phone || 'unknown');
+      await kvSet(tempCatKey, cat);
+      // אם בחר 1 (היום) — שמור תאריך היום וסיים
+      if (choice === '1') {
+        var tempDateKey = 'vaad:temp_date:' + (phone || 'unknown');
+        await kvSet(tempDateKey, todayStr());
+      }
+      return res.send('id_list_message=&');
+    }
+ 
+    // רישום הוצאה עם תאריך (שלב סופי)
+    if (step === 'addexpense_date') {
+      var digit3   = req.query.ApiDig || '';
+      var tempKey3 = 'vaad:temp_amount:' + (phone || 'unknown');
+      var tempCat3 = 'vaad:temp_cat:'    + (phone || 'unknown');
+      var tempDat3 = 'vaad:temp_date:'   + (phone || 'unknown');
+ 
+      var savedAmt3 = await kvGet(tempKey3);
+      var savedCat3 = await kvGet(tempCat3) || 'אחר';
+      var savedDat3 = await kvGet(tempDat3);
+ 
+      var amount3 = parseInt(savedAmt3 || '0') || 0;
+      if (!amount3) return res.send('לא נמצא סכום. אנא נסה שנית.');
+ 
+      // תאריך — אם הוקש (8 ספרות DDMMYYYY) השתמש בו, אחרת תאריך שנשמר
+      var dateStr3 = todayStr();
+      if (digit3 && digit3.length === 8) {
+        dateStr3 = digit3.slice(0,2) + '.' + digit3.slice(2,4) + '.' + digit3.slice(4,8);
+      } else if (savedDat3) {
+        dateStr3 = savedDat3;
+      }
+ 
+      // נקה מפתחות זמניים
+      await kvSet(tempKey3, null);
+      await kvSet(tempCat3, null);
+      await kvSet(tempDat3, null);
+ 
+      var ivrExpNew = {
+        amount: amount3,
+        desc:   savedCat3,
+        date:   dateStr3,
+        cat:    savedCat3,
+        id:     'ivr_' + Date.now()
+      };
+      var ivrExpsNew = await kvGet('vaad:ivr_expenses') || [];
+      ivrExpsNew.push(ivrExpNew);
+      await kvSet('vaad:ivr_expenses', ivrExpsNew);
+ 
+      return res.send('הוצאה של ' + amount3 + ' שקלים עבור ' + savedCat3 +
+                      ' בתאריך ' + dateStr3 + ' נרשמה בהצלחה. תודה.');
     }
  
     // שמירת סכום זמני (שלב א) — משמש לתשלום ולהוצאה
