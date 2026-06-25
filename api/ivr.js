@@ -65,6 +65,7 @@ export default async function handler(req, res) {
   try {
     var phone = normalizePhone(req.query.ApiPhone || req.query.phone || '');
     var step  = req.query.step || 'menu';
+    var digit = req.query.ApiDig || '';
     var base  = 'https://' + req.headers.host + '/api/ivr';
     var p     = phone;
  
@@ -72,6 +73,14 @@ export default async function handler(req, res) {
     var announcement = await kvGet('vaad:announcement') || '';
     if (!Array.isArray(residents)) residents = [];
     var resident = findResident(residents, phone);
+ 
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+ 
+    // טיפול בהקשה מהתפריט
+    if (digit === '1') step = 'debt';
+    if (digit === '2') step = 'payments';
+    if (digit === '3') step = 'complaint';
+    if (digit === '4') step = 'announcement';
  
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
  
@@ -100,12 +109,10 @@ export default async function handler(req, res) {
       return res.send('id_list_message=t-' + ann);
     }
  
-    // תפריט ראשי
+    // תפריט ראשי - read מבקש הקשה וימות שולח אותה חזרה כ-ApiDig
     var name = resident ? resident.name : 'דייר יקר';
-    // ימות שולח ApiPhone אוטומטית — אין צורך להעביר phone ב-URL
     return res.send(
-      'id_list_message=t-שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.\n' +
-      'id_list_ivr=1=' + base + '?step=debt,2=' + base + '?step=payments,3=' + base + '?step=complaint,4=' + base + '?step=announcement'
+      'read=ApiDig,,1,שלום ' + name + '. לשמיעת יתרת החוב לחץ 1. לשמיעת תשלומים לחץ 2. לדיווח על תקלה לחץ 3. לשמיעת הודעה מהועד לחץ 4.,DIGITS,1,10,,'
     );
  
   } catch(e) {
