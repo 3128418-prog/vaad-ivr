@@ -238,9 +238,10 @@ export default async function handler(req, res) {
       // העבר לשלוחה הבאה לפי סוג (הוצאה/תשלום)
       var nextFolder = req.query.next || '';
       if (nextFolder) {
-        return res.send('go_to_folder=' + nextFolder + '&');
+        // ימות תומך ב-id_list_message עם go_to_folder ביחד
+        return res.send('id_list_message=t- &go_to_folder=' + nextFolder + '&');
       }
-      return res.send('id_list_message=&');
+      return res.send('id_list_message=t- &');
     }
  
     // 8/7/2 — רישום הוצאה
