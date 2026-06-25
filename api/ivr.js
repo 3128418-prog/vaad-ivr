@@ -116,6 +116,7 @@ export default async function handler(req, res) {
       if ((body.secret || body.apiKey) !== SECRET)
         return res.status(401).json({ error: 'Unauthorized' });
       if (body.residents)    await kvSet('vaad:residents', body.residents);
+      if (body.vaad_phones)   await kvSet('vaad:vaad_phones', body.vaad_phones);
       if (body.expenses)     await kvSet('vaad:expenses',  body.expenses);
       if (body.announcement !== undefined)
         await kvSet('vaad:announcement', body.announcement);
@@ -149,7 +150,13 @@ export default async function handler(req, res) {
     // ════════════════════════════════════════════════
  
     if (step === 'menu') {
-      var greeting = 'שלום ' + name + '.';
+      // בדוק אם מספר ועד בית — העבר ל-8/7
+      var vaadPhones = await kvGet('vaad:vaad_phones') || [];
+      if (vaadPhones.includes(phone)) {
+        return res.send('go_to_folder=/8/7&');
+      }
+      // דייר רגיל — ברך ושלח לתפריט (גם אם לא מזוהה)
+      var greeting = resident ? 'שלום ' + name + '.' : 'שלום.';
       return res.send('id_list_message=t-' + greeting + '&go_to_folder=/8/9&');
     }
  
