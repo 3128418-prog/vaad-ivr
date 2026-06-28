@@ -53,7 +53,11 @@ async function kvSet(key, value) {
  
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function cleanText(text) {
-  return String(text || '').replace(/[&=]/g, ' ').replace(/\s+/g, ' ').trim();
+  // הסר כל תו שימות מפרש כפקודה
+  return String(text || '')
+    .replace(/[&=\"'<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
  
 function encodeIvr(text) {
