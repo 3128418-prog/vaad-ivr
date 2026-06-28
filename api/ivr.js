@@ -246,6 +246,23 @@ export default async function handler(req, res) {
  
     // 8/7/1 — רישום תשלום מזומן
     // בדיקת Yemot API
+    if (step === 'list_files') {
+      var token = process.env.YEMOT_TOKEN || '';
+      var path = req.query.path || '8/7/3/1';
+      var url = 'https://www.call2all.co.il/ym/api/GetIVR2Dir' +
+                '?token=' + encodeURIComponent(token) +
+                '&path=ivr2:' + encodeURIComponent(path);
+      try {
+        var r = await fetch(url);
+        var j = await r.json();
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(JSON.stringify(j));
+      } catch(e) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(JSON.stringify({ error: e.message }));
+      }
+    }
+ 
     if (step === 'test_yemot') {
       var token = process.env.YEMOT_TOKEN || 'NO_TOKEN';
       var testText = 'בדיקה של מערכת ועד בית';
