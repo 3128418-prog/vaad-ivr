@@ -341,7 +341,7 @@ export default async function handler(req, res) {
       var allExps = await kvGet('vaad:ivr_expenses') || [];
       var siteExps = (expData.recent || []);
       var combined = sortByDate(allExps.concat(siteExps)).slice(0,5); // 5 במקום 10
-      if (!combined.length) return res.send('id_list_message=t-'+encodeIvr('לא נמצאו הוצאות.')+'&');
+      if (!combined.length) return res.send('id_list_message=t-לא נמצאו הוצאות.&');
       var total3 = combined.reduce(function(s,e){ return s+(e.amount||0); }, 0);
       var lines3 = combined.map(function(e) {
         var d = e.date ? e.date.split('.') : [];
@@ -349,14 +349,14 @@ export default async function handler(req, res) {
         return (e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
-      return res.send('id_list_message=t-'+encodeIvr(txt3)+'&');
+      return res.send('id_list_message=t-'+txt3+'&');
     }
  
     // 8/7/4 — 10 תשלומי מזומן אחרונים
     if (step === 'vaad_cashpays') {
       var cashPays = await kvGet('vaad:ivr_payments') || [];
       var sorted   = sortByDate(cashPays).slice(0,5);
-      if (!sorted.length) return res.send('id_list_message=t-'+encodeIvr('לא נמצאו תשלומי מזומן.')+'&');
+      if (!sorted.length) return res.send('id_list_message=t-לא נמצאו תשלומי מזומן.&');
       var total4 = sorted.reduce(function(s,p){ return s+(p.amount||0); }, 0);
       var lines4 = sorted.map(function(p) {
         var d = p.date ? p.date.split('.') : [];
@@ -364,7 +364,7 @@ export default async function handler(req, res) {
         return (p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
-      return res.send('id_list_message=t-'+encodeIvr(txt4)+'&');
+      return res.send('id_list_message=t-'+txt4+'&');
     }
  
     // 8/7/5 — צינתוק לדייר לפי מספר דירה
