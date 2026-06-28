@@ -249,7 +249,7 @@ export default async function handler(req, res) {
     if (step === 'test_yemot') {
       var token = process.env.YEMOT_TOKEN || 'NO_TOKEN';
       var testText = 'בדיקה של מערכת ועד בית';
-      var testPath = '8/7/3/1/000.txt';
+      var testPath = '8/7/3/1/000.tts';
       var url = 'https://www.call2all.co.il/ym/api/UploadTextFile' +
                 '?token=' + encodeURIComponent(token) +
                 '&what=ivr2:' + encodeURIComponent(testPath) +
@@ -397,7 +397,7 @@ export default async function handler(req, res) {
       });
       var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
       // כתוב קובץ TTS בשלוחה ימות והפנה אליו
-      var ttsPath = '8/7/3/1/000.txt';
+      var ttsPath = '8/7/3/1/000.tts';
       var ok3 = await yemotWriteTTS(ttsPath, txt3);
       if (ok3) {
         return res.send('go_to_folder=/8/7/3/1&');
@@ -418,7 +418,7 @@ export default async function handler(req, res) {
         return cleanText(p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
-      var ttsPath4 = '8/7/4/1/000.txt';
+      var ttsPath4 = '8/7/4/1/000.tts';
       var ok4 = await yemotWriteTTS(ttsPath4, txt4);
       if (ok4) {
         return res.send('go_to_folder=/8/7/4/1&');
