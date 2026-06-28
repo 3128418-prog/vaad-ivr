@@ -393,6 +393,15 @@ export default async function handler(req, res) {
     }
  
     // ── endpoint לקריאת נתוני IVR מהאתר ──────────────────────────────────
+    // ניקוי נתוני IVR זמניים
+    if (step === 'clear_ivr') {
+      if ((req.query.secret || '') !== SECRET) return res.status(401).send('Unauthorized');
+      await kvSet('vaad:ivr_expenses', []);
+      await kvSet('vaad:ivr_payments', []);
+      res.setHeader('Content-Type', 'application/json');
+      return res.send(JSON.stringify({ ok: true, msg: 'cleared' }));
+    }
+ 
     if (step === 'get_ivr_payments') {
       if ((req.query.secret || '') !== SECRET)
         return res.status(401).send('Unauthorized');
