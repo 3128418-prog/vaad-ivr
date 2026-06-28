@@ -52,6 +52,10 @@ async function kvSet(key, value) {
 }
  
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function cleanText(text) {
+  return String(text || '').replace(/[&=]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+ 
 function encodeIvr(text) {
   // ימות דורש urlencode על טקסט עברי ב-id_list_message
   return encodeURIComponent(String(text || ''));
@@ -346,7 +350,7 @@ export default async function handler(req, res) {
       var lines3 = combined.map(function(e) {
         var d = e.date ? e.date.split('.') : [];
         var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
-        return (e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
+        return cleanText(e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
       return res.send('id_list_message=t-'+txt3+'&');
@@ -361,7 +365,7 @@ export default async function handler(req, res) {
       var lines4 = sorted.map(function(p) {
         var d = p.date ? p.date.split('.') : [];
         var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
-        return (p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
+        return cleanText(p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
       return res.send('id_list_message=t-'+txt4+'&');
