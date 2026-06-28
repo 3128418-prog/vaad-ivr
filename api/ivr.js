@@ -52,6 +52,11 @@ async function kvSet(key, value) {
 }
  
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function encodeIvr(text) {
+  // ימות דורש urlencode על טקסט עברי ב-id_list_message
+  return encodeURIComponent(String(text || ''));
+}
+ 
 function normalizePhone(phone) {
   phone = String(phone || '').replace(/\D/g, '');
   if (phone.startsWith('972')) phone = '0' + phone.slice(3);
@@ -336,29 +341,30 @@ export default async function handler(req, res) {
       var allExps = await kvGet('vaad:ivr_expenses') || [];
       var siteExps = (expData.recent || []);
       var combined = sortByDate(allExps.concat(siteExps)).slice(0,5); // 5 במקום 10
-      if (!combined.length) return res.send('לא נמצאו הוצאות.');
+      if (!combined.length) return res.send('id_list_message=t-'+encodeIvr('לא נמצאו הוצאות.')+'&');
       var total3 = combined.reduce(function(s,e){ return s+(e.amount||0); }, 0);
       var lines3 = combined.map(function(e) {
-        // תאריך קצר: DD/MM
         var d = e.date ? e.date.split('.') : [];
         var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
         return (e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
-      return res.send('סה"כ ' + total3 + ' שקלים. ' + lines3.join(' '));
+      var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
+      return res.send('id_list_message=t-'+encodeIvr(txt3)+'&');
     }
  
     // 8/7/4 — 10 תשלומי מזומן אחרונים
     if (step === 'vaad_cashpays') {
       var cashPays = await kvGet('vaad:ivr_payments') || [];
       var sorted   = sortByDate(cashPays).slice(0,5);
-      if (!sorted.length) return res.send('לא נמצאו תשלומי מזומן.');
+      if (!sorted.length) return res.send('id_list_message=t-'+encodeIvr('לא נמצאו תשלומי מזומן.')+'&');
       var total4 = sorted.reduce(function(s,p){ return s+(p.amount||0); }, 0);
       var lines4 = sorted.map(function(p) {
         var d = p.date ? p.date.split('.') : [];
         var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
         return (p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
-      return res.send('סה"כ ' + total4 + ' שקלים. ' + lines4.join(' '));
+      var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
+      return res.send('id_list_message=t-'+encodeIvr(txt4)+'&');
     }
  
     // 8/7/5 — צינתוק לדייר לפי מספר דירה
