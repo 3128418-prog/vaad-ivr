@@ -377,13 +377,12 @@ export default async function handler(req, res) {
       });
       var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
       // כתוב קובץ TTS בשלוחה ימות והפנה אליו
-      var ttsPath = '8/7/3/tts_exp.txt';
+      var ttsPath = '8/7/3/1/000.txt';
       var ok3 = await yemotWriteTTS(ttsPath, txt3);
       if (ok3) {
-        return res.send('go_to_folder_and_play=/8/7/3&play_file=tts_exp&');
+        return res.send('go_to_folder=/8/7/3/1&');
       }
-      // fallback
-      return res.send('id_list_message=t-' + txt3 + '&');
+      return res.send('id_list_message=t-שגיאה בטעינת נתונים.&');
     }
  
     // 8/7/4 — 10 תשלומי מזומן אחרונים
@@ -399,12 +398,12 @@ export default async function handler(req, res) {
         return cleanText(p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
-      var ttsPath4 = '8/7/4/tts_cash.txt';
+      var ttsPath4 = '8/7/4/1/000.txt';
       var ok4 = await yemotWriteTTS(ttsPath4, txt4);
       if (ok4) {
-        return res.send('go_to_folder_and_play=/8/7/4&play_file=tts_cash&');
+        return res.send('go_to_folder=/8/7/4/1&');
       }
-      return res.send('id_list_message=t-' + txt4 + '&');
+      return res.send('id_list_message=t-שגיאה בטעינת נתונים.&');
     }
  
     // 8/7/5 — צינתוק לדייר לפי מספר דירה
