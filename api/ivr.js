@@ -120,12 +120,18 @@ async function yemotWriteTTS(path, text) {
   try {
     var token = process.env.YEMOT_TOKEN || '';
     if (!token) return false;
-    var url = 'https://www.call2all.co.il/ym/api/UploadTextFile' +
-              '?token=' + encodeURIComponent(token) +
-              '&what=ivr2:' + encodeURIComponent(path) +
-              '&contents=' + encodeURIComponent(text);
-    var r = await fetch(url);
+    // שלח כ-POST עם body
+    var apiUrl = 'https://www.call2all.co.il/ym/api/UploadTextFile';
+    var body = 'token=' + encodeURIComponent(token) +
+               '&what=ivr2:' + encodeURIComponent(path) +
+               '&contents=' + encodeURIComponent(text);
+    var r = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    });
     var j = await r.json();
+    console.log('yemotWriteTTS:', path, j.responseStatus, j.message);
     return j.responseStatus === 'OK';
   } catch(e) {
     console.log('yemotWriteTTS error:', e.message);
@@ -266,7 +272,7 @@ export default async function handler(req, res) {
     if (step === 'test_yemot') {
       var token = process.env.YEMOT_TOKEN || 'NO_TOKEN';
       var testText = 'בדיקה של מערכת ועד בית';
-      var testPath = '8/7/3/1/000.txt';
+      var testPath = '8/7/3/1/000.tts';
       var url = 'https://www.call2all.co.il/ym/api/UploadTextFile' +
                 '?token=' + encodeURIComponent(token) +
                 '&what=ivr2:' + encodeURIComponent(testPath) +
@@ -416,7 +422,7 @@ export default async function handler(req, res) {
       });
       var txt3 = lines3.join(' ');
       // כתוב קובץ TTS בשלוחה ימות והפנה אליו
-      var ttsPath = '8/7/3/1/000.txt';
+      var ttsPath = '8/7/3/1/000.tts';
       var ok3 = await yemotWriteTTS(ttsPath, txt3);
       if (ok3) {
         return res.send('go_to_folder=/8/7/3/1&');
@@ -439,7 +445,7 @@ export default async function handler(req, res) {
         return (ds ? 'ב-' + ds + ', ' : '') + 'תשלום של ' + (p.amount||0) + ' שקלים מ' + cleanText(p.name||'דייר') + '.';
       });
       var txt4 = lines4.join(' ');
-      var ttsPath4 = '8/7/4/1/000.txt';
+      var ttsPath4 = '8/7/4/1/000.tts';
       var ok4 = await yemotWriteTTS(ttsPath4, txt4);
       if (ok4) {
         return res.send('go_to_folder=/8/7/4/1&');
