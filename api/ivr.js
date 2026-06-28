@@ -245,6 +245,26 @@ export default async function handler(req, res) {
     // ════════════════════════════════════════════════
  
     // 8/7/1 — רישום תשלום מזומן
+    // בדיקת Yemot API
+    if (step === 'test_yemot') {
+      var token = process.env.YEMOT_TOKEN || 'NO_TOKEN';
+      var testText = 'בדיקה של מערכת ועד בית';
+      var testPath = '8/7/3/1/000.txt';
+      var url = 'https://www.call2all.co.il/ym/api/UploadTextFile' +
+                '?token=' + encodeURIComponent(token) +
+                '&what=ivr2:' + encodeURIComponent(testPath) +
+                '&contents=' + encodeURIComponent(testText);
+      try {
+        var r = await fetch(url);
+        var j = await r.json();
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(JSON.stringify({ token_exists: token !== 'NO_TOKEN', url: url, response: j }));
+      } catch(e) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.send(JSON.stringify({ error: e.message }));
+      }
+    }
+ 
     // DEBUG — מחזיר את כל הפרמטרים שימות שלח
     if (step === 'debug') {
       var allParams = JSON.stringify(req.query);
