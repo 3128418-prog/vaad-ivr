@@ -249,7 +249,7 @@ export default async function handler(req, res) {
     if (step === 'test_yemot') {
       var token = process.env.YEMOT_TOKEN || 'NO_TOKEN';
       var testText = 'בדיקה של מערכת ועד בית';
-      var testPath = '8/7/3/1/000.tts';
+      var testPath = '8/7/3/1/tts';
       var url = 'https://www.call2all.co.il/ym/api/UploadTextFile' +
                 '?token=' + encodeURIComponent(token) +
                 '&what=ivr2:' + encodeURIComponent(testPath) +
@@ -392,12 +392,14 @@ export default async function handler(req, res) {
       var months3 = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
       var lines3 = combined.map(function(e) {
         var d = e.date ? e.date.split('.') : [];
-        var ds = d.length>=2 ? d[0]+' ב'+months3[parseInt(d[1])||0] : '';
-        return cleanText(e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
+        var day3 = d[0] ? parseInt(d[0]) : '';
+        var mon3 = d[1] ? months3[parseInt(d[1])||0] : '';
+        var ds = (day3 && mon3) ? 'ב' + day3 + ' ב' + mon3 : '';
+        return (ds ? 'ב-' + ds + ', ' : '') + 'הוצאה של ' + (e.amount||0) + ' שקלים עבור ' + cleanText(e.desc||'הוצאה כללית') + '.';
       });
-      var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
+      var txt3 = lines3.join(' ');
       // כתוב קובץ TTS בשלוחה ימות והפנה אליו
-      var ttsPath = '8/7/3/1/000.tts';
+      var ttsPath = '8/7/3/1/tts';
       var ok3 = await yemotWriteTTS(ttsPath, txt3);
       if (ok3) {
         return res.send('go_to_folder=/8/7/3/1&');
@@ -414,11 +416,13 @@ export default async function handler(req, res) {
       var months4 = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
       var lines4 = sorted.map(function(p) {
         var d = p.date ? p.date.split('.') : [];
-        var ds = d.length>=2 ? d[0]+' ב'+months4[parseInt(d[1])||0] : '';
-        return cleanText(p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
+        var day4 = d[0] ? parseInt(d[0]) : '';
+        var mon4 = d[1] ? months4[parseInt(d[1])||0] : '';
+        var ds = (day4 && mon4) ? 'ב' + day4 + ' ב' + mon4 : '';
+        return (ds ? 'ב-' + ds + ', ' : '') + 'תשלום של ' + (p.amount||0) + ' שקלים מ' + cleanText(p.name||'דייר') + '.';
       });
-      var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
-      var ttsPath4 = '8/7/4/1/000.tts';
+      var txt4 = lines4.join(' ');
+      var ttsPath4 = '8/7/4/1/tts';
       var ok4 = await yemotWriteTTS(ttsPath4, txt4);
       if (ok4) {
         return res.send('go_to_folder=/8/7/4/1&');
