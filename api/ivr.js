@@ -115,6 +115,24 @@ function sortByDate(arr) {
   });
 }
  
+// ─── Yemot API — כתיבת קובץ TTS ────────────────────────────────────────────
+async function yemotWriteTTS(path, text) {
+  try {
+    var token = process.env.YEMOT_TOKEN || '';
+    if (!token) return false;
+    var url = 'https://www.call2all.co.il/ym/api/UploadTextFile' +
+              '?token=' + encodeURIComponent(token) +
+              '&what=ivr2:' + encodeURIComponent(path) +
+              '&contents=' + encodeURIComponent(text);
+    var r = await fetch(url);
+    var j = await r.json();
+    return j.responseStatus === 'OK';
+  } catch(e) {
+    console.log('yemotWriteTTS error:', e.message);
+    return false;
+  }
+}
+ 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -348,16 +366,24 @@ export default async function handler(req, res) {
     if (step === 'vaad_expenses') {
       var allExps = await kvGet('vaad:ivr_expenses') || [];
       var siteExps = (expData.recent || []);
-      var combined = sortByDate(allExps.concat(siteExps)).slice(0,5); // 5 במקום 10
+      var combined = sortByDate(allExps.concat(siteExps)).slice(0,5);
       if (!combined.length) return res.send('id_list_message=t-לא נמצאו הוצאות.&');
       var total3 = combined.reduce(function(s,e){ return s+(e.amount||0); }, 0);
+      var months3 = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
       var lines3 = combined.map(function(e) {
         var d = e.date ? e.date.split('.') : [];
-        var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
+        var ds = d.length>=2 ? d[0]+' ב'+months3[parseInt(d[1])||0] : '';
         return cleanText(e.desc||'הוצאה') + ' ' + (e.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt3 = 'סה"כ ' + total3 + ' שקלים. ' + lines3.join(' ');
-      return res.send('id_list_message=t-'+txt3+'&');
+      // כתוב קובץ TTS בשלוחה ימות והפנה אליו
+      var ttsPath = '8/7/3/tts_exp.txt';
+      var ok3 = await yemotWriteTTS(ttsPath, txt3);
+      if (ok3) {
+        return res.send('go_to_folder_and_play=/8/7/3&play_file=tts_exp&');
+      }
+      // fallback
+      return res.send('id_list_message=t-' + txt3 + '&');
     }
  
     // 8/7/4 — 10 תשלומי מזומן אחרונים
@@ -366,13 +392,19 @@ export default async function handler(req, res) {
       var sorted   = sortByDate(cashPays).slice(0,5);
       if (!sorted.length) return res.send('id_list_message=t-לא נמצאו תשלומי מזומן.&');
       var total4 = sorted.reduce(function(s,p){ return s+(p.amount||0); }, 0);
+      var months4 = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
       var lines4 = sorted.map(function(p) {
         var d = p.date ? p.date.split('.') : [];
-        var ds = d.length>=2 ? d[0]+' ב'+['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'][parseInt(d[1])||0] : '';
+        var ds = d.length>=2 ? d[0]+' ב'+months4[parseInt(d[1])||0] : '';
         return cleanText(p.name||'דייר') + ' ' + (p.amount||0) + ' שקלים' + (ds?' ב'+ds:'') + '.';
       });
       var txt4 = 'סה"כ ' + total4 + ' שקלים. ' + lines4.join(' ');
-      return res.send('id_list_message=t-'+txt4+'&');
+      var ttsPath4 = '8/7/4/tts_cash.txt';
+      var ok4 = await yemotWriteTTS(ttsPath4, txt4);
+      if (ok4) {
+        return res.send('go_to_folder_and_play=/8/7/4&play_file=tts_cash&');
+      }
+      return res.send('id_list_message=t-' + txt4 + '&');
     }
  
     // 8/7/5 — צינתוק לדייר לפי מספר דירה
